@@ -32,47 +32,51 @@ local function exec_bash_command(command)
 end
 
 ---@return string[]
-local function get_remotes()
-	local remote_list_str = exec_bash_command("git remote")
+local function get_remote_repos()
+	local remote_list_str = exec_bash_command("git remote -v")
 
 	if remote_list_str == nil then
 		log("remote list str is nil")
 		return {}
 	end
 
-	local remote_list = {}
+	local is_remote_repo_exist = {}
 
 	for remote_name in string.gmatch(remote_list_str, "[^\n]+") do
-		table.insert(remote_list, remote_name)
-	end
-	return remote_list
-end
+		local c = 0
+		local remote_url = ""
 
----@return string|nil
-local function get_repo_name()
-	local abs_path = exec_bash_command("git rev-parse --show-toplevel")
+		vim.print(remote_name)
 
-	if abs_path == nil then
-		log("abs path is nil")
-		return nil
-	end
-	local last_folder_name = ""
-	for folder_name in string.gmatch(abs_path, "[^(/|\n)]+") do
-		last_folder_name = folder_name
-	end
-	return last_folder_name
-end
+		for s in string.gmatch(remote_name, "[^%s]+") do
+			c = c + 1
+			if c == 2 then
+				remote_url = s
+			end
+		end
 
----@return string[]
-local function get_remote_repos()
-	local remotes = get_remotes()
-	local repo = get_repo_name()
-	---@type string[]
-	local remote_repos = {}
-	for _, remote in ipairs(remotes) do
-		table.insert(remote_repos, string.format("%s/%s", remote, repo))
+		local remote_repo_dot_git = ""
+		for s in string.gmatch(remote_url, "[^:]+") do
+			remote_repo_dot_git = s
+		end
+
+		local remote_repo = ""
+		for s in string.gmatch(remote_repo_dot_git, "[^.]+") do
+			remote_repo = s
+			break
+		end
+
+		is_remote_repo_exist[remote_repo] = true
 	end
-	return remote_repos
+
+	local remote_repo_list = {}
+	for k, _ in pairs(is_remote_repo_exist) do
+		table.insert(remote_repo_list, k)
+	end
+
+	vim.print(remote_repo_list)
+
+	return remote_repo_list
 end
 
 ---@return string
