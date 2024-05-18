@@ -17,7 +17,6 @@ local function log(line)
 	vim.print(line)
 end
 
----comment
 ---@param command string
 ---@return string|nil
 local function exec_bash_command(command)
@@ -221,7 +220,7 @@ local function get_pr_description(commit_hash)
 	return nil
 end
 
-vim.keymap.set("n", "<leader>pr", function()
+function Load_PR_Information()
 	local line_no = get_cursor_line_number()
 	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
 
@@ -257,4 +256,5 @@ vim.keymap.set("n", "<leader>pr", function()
 	attach_popup_close_keymap(popup)
 	attach_pr_open_keymap(popup, pr_description)
 	write_pr_description_on_popup(popup, pr_details_text)
-end, { desc = "Get Pull Request Information" })
+end
+
