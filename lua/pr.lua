@@ -1,15 +1,26 @@
 local Popup = require("nui.popup")
 local event = require("nui.utils.autocmd").event
 
+---@alias pr_description { url: string, title: string}
+---@class popup
+---@field bufnr number
+---@field unmount function
+
+
+---@return number
 local function get_cursor_line_number()
 	local r, _ = unpack(vim.api.nvim_win_get_cursor(0))
 	return r
 end
 
+---@param line string
 local function log(line)
 	vim.print(line)
 end
 
+---comment
+---@param command string
+---@return string|nil
 local function exec_bash_command(command)
 	local handle = io.popen(command)
 	if handle == nil then
@@ -21,11 +32,13 @@ local function exec_bash_command(command)
 	return result
 end
 
+---@return string[]
 local function get_remotes()
 	local remote_list_str = exec_bash_command("git remote")
 
 	if remote_list_str == nil then
 		log("remote list str is nil")
+    return {}
 	end
 
 	local remote_list = {}
@@ -36,11 +49,13 @@ local function get_remotes()
 	return remote_list
 end
 
+---@return string|nil
 local function get_repo_name()
 	local abs_path = exec_bash_command("git rev-parse --show-toplevel")
 
 	if abs_path == nil then
 		log("abs path is nil")
+    return nil
 	end
 	local last_folder_name = ""
 	for folder_name in string.gmatch(abs_path, "[^(/|\n)]+") do
@@ -49,9 +64,11 @@ local function get_repo_name()
 	return last_folder_name
 end
 
+---@return string[]
 local function get_remote_repos()
 	local remotes = get_remotes()
 	local repo = get_repo_name()
+	---@type string[]
 	local remote_repos = {}
 	for _, remote in ipairs(remotes) do
 		table.insert(remote_repos, string.format("%s/%s", remote, repo))
@@ -59,10 +76,14 @@ local function get_remote_repos()
 	return remote_repos
 end
 
+---@return string
 local function get_current_file_path()
 	return vim.fn.expand("%:p")
 end
 
+---@param line_no number
+---@param file_path string
+---@return string|nil
 local function get_git_blame_commit_hash(line_no, file_path)
 	local command_output = exec_bash_command(string.format("git blame -l -L %d,%d %s", line_no, line_no, file_path))
 
@@ -76,6 +97,8 @@ local function get_git_blame_commit_hash(line_no, file_path)
 	end
 end
 
+---@param pr_description pr_description
+---@return popup
 local function show_popup(pr_description)
 	local popup = Popup({
 		position = "50%",
@@ -119,6 +142,8 @@ local function show_popup(pr_description)
 	return popup
 end
 
+---@param popup popup
+---@param pr_description pr_description
 local function attach_key_maps_to_buffer(popup, pr_description)
 	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
 		desc = "Open the Pull Request on the browser",
@@ -135,15 +160,19 @@ local function attach_key_maps_to_buffer(popup, pr_description)
 	})
 end
 
+---@param popup popup
 local function highlight_buffer_using_markdown_highlighter(popup)
 	vim.api.nvim_set_option_value("filetype", "markdown", { buf = popup.bufnr })
 end
 
+---@param popup popup
+---@param pr_description pr_description
 local function write_pr_description_on_popup(popup, pr_description)
 	local pr_details = exec_bash_command(string.format("gh pr view %s", pr_description["url"]))
 
 	if pr_details == nil then
 		log("Unable to fetch PR details")
+    return
 	end
 
 	local lines = {}
@@ -153,7 +182,8 @@ local function write_pr_description_on_popup(popup, pr_description)
 	vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
 end
 
-local function get_pr_title_and_url()
+---@return pr_description|nil
+local function get_pr_description()
 	local line_no = get_cursor_line_number()
 	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
 	local remote_repos = get_remote_repos()
@@ -180,14 +210,13 @@ local function get_pr_title_and_url()
 end
 
 vim.keymap.set("n", "<leader>pr", function()
-	local pr_descriptions = get_pr_title_and_url()
-
+	local pr_descriptions = get_pr_description()
 	if pr_descriptions == nil or pr_descriptions[1] == nil then
 		return
 	end
 
 	local popup = show_popup(pr_descriptions[1])
-  highlight_buffer_using_markdown_highlighter(popup)
+	highlight_buffer_using_markdown_highlighter(popup)
 	attach_key_maps_to_buffer(popup, pr_descriptions[1])
 	write_pr_description_on_popup(popup, pr_descriptions[1])
 end, { desc = "Get Pull Request Information" })
