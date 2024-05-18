@@ -143,19 +143,22 @@ local function show_popup(title)
 end
 
 ---@param popup popup
----@param pr_description pr_description
-local function attach_key_maps_to_buffer(popup, pr_description)
-	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
-		desc = "Open the Pull Request on the browser",
-		callback = function()
-			exec_bash_command(string.format("gh pr view %s -w", pr_description["url"]))
-		end,
-	})
-
+local function attach_popup_close_keymap(popup)
 	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "q", "", {
 		desc = "Close the popup window",
 		callback = function()
 			popup:unmount()
+		end,
+	})
+end
+
+---@param popup popup
+---@param pr_description pr_description
+local function attach_pr_open_keymap(popup, pr_description)
+	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
+		desc = "Open the Pull Request on the browser",
+		callback = function()
+			exec_bash_command(string.format("gh pr view %s -w", pr_description["url"]))
 		end,
 	})
 end
@@ -168,8 +171,14 @@ end
 ---@param pr_url string
 ---@return string|nil
 local function get_pr_details_text(pr_url)
-	local pr_details_text = exec_bash_command(string.format("gh pr view %s", pr_description["url"]))
+	local pr_details_text = exec_bash_command(string.format("gh pr view %s", pr_url))
 	return pr_details_text
+end
+
+---@param popup popup
+---@param lines string[]
+local function write_text_to_popup(popup, lines)
+	vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
 end
 
 ---@param popup popup
@@ -179,13 +188,12 @@ local function write_pr_description_on_popup(popup, pr_details_text)
 	for line in string.gmatch(pr_details_text, "[^\r\n]+") do
 		table.insert(lines, line)
 	end
-	vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+	write_text_to_popup(popup, lines)
 end
 
+---@param commit_hash string
 ---@return pr_description|nil
-local function get_pr_description()
-	local line_no = get_cursor_line_number()
-	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
+local function get_pr_description(commit_hash)
 	local remote_repos = get_remote_repos()
 
 	local remote_repos_filter = ""
@@ -210,22 +218,39 @@ local function get_pr_description()
 end
 
 vim.keymap.set("n", "<leader>pr", function()
-	local pr_descriptions = get_pr_description()
-	if pr_descriptions == nil or pr_descriptions[1] == nil then
+	local line_no = get_cursor_line_number()
+	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
+
+	if commit_hash == nil then
+		log("Unable to get commit_hash")
 		return
 	end
 
-	pr_description = pr_descriptions[1]
+	local loading_popup = show_popup("Pull Request Loading...")
+	attach_popup_close_keymap(loading_popup)
+
+	local pr_descriptions = get_pr_description(commit_hash)
+
+	if pr_descriptions == nil or pr_descriptions[1] == nil then
+		loading_popup:unmount()
+		return
+	end
+
+	local pr_description = pr_descriptions[1]
 
 	local pr_details_text = get_pr_details_text(pr_description["url"])
 
 	if pr_details_text == nil then
 		log("Unable to fetch PR details")
+		loading_popup:unmount()
 		return
 	end
 
+	loading_popup:unmount()
+
 	local popup = show_popup(pr_description["title"])
 	highlight_buffer_using_markdown_highlighter(popup)
-	attach_key_maps_to_buffer(popup, pr_description)
+	attach_popup_close_keymap(popup)
+	attach_pr_open_keymap(popup, pr_description)
 	write_pr_description_on_popup(popup, pr_details_text)
 end, { desc = "Get Pull Request Information" })
