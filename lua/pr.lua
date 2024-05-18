@@ -120,7 +120,7 @@ local function show_popup(pr_description)
 end
 
 local function attach_key_maps_to_buffer(popup, pr_description)
-  vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
+	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
 		desc = "Open the Pull Request on the browser",
 		callback = function()
 			exec_bash_command(string.format("gh pr view %s -w", pr_description["url"]))
@@ -133,6 +133,10 @@ local function attach_key_maps_to_buffer(popup, pr_description)
 			popup:unmount()
 		end,
 	})
+end
+
+local function highlight_buffer_using_markdown_highlighter(popup)
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = popup.bufnr })
 end
 
 local function write_pr_description_on_popup(popup, pr_description)
@@ -183,6 +187,7 @@ vim.keymap.set("n", "<leader>pr", function()
 	end
 
 	local popup = show_popup(pr_descriptions[1])
-  attach_key_maps_to_buffer(popup, pr_descriptions[1])
+  highlight_buffer_using_markdown_highlighter(popup)
+	attach_key_maps_to_buffer(popup, pr_descriptions[1])
 	write_pr_description_on_popup(popup, pr_descriptions[1])
 end, { desc = "Get Pull Request Information" })
