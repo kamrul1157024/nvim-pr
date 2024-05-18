@@ -13,7 +13,7 @@ To use this plugin [gh](https://cli.github.com/) needed to be set up.
 |--------------|-------|--------|-------------------------------------------------------------|
 |`<leader>pr`  | code  | Normal | To see the pull request info of the current line use.       |
 |`<CR>(Enter)` | popup | Normal | To open it on the browser press while cursor on the popup.  |
-|`q`:          | popup | Normal | Quit from popup while cursor on the popup.                  |
+|`q`           | popup | Normal | Quit from popup while cursor on the popup.                  |
 
 
 ## Preview
