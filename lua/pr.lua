@@ -220,7 +220,7 @@ local function get_pr_description(commit_hash)
 	return nil
 end
 
-function Load_PR_Information()
+local function load_pr_information()
 	local line_no = get_cursor_line_number()
 	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
 
@@ -258,3 +258,10 @@ function Load_PR_Information()
 	write_pr_description_on_popup(popup, pr_details_text)
 end
 
+local function setup()
+	vim.keymap.set("n", "<leader>pr", load_pr_information, { desc = "Get Pull Request Information" })
+end
+
+return {
+	setup=setup,
+}
