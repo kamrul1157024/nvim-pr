@@ -6,7 +6,6 @@ local event = require("nui.utils.autocmd").event
 ---@field bufnr number
 ---@field unmount function
 
-
 ---@return number
 local function get_cursor_line_number()
 	local r, _ = unpack(vim.api.nvim_win_get_cursor(0))
@@ -38,7 +37,7 @@ local function get_remotes()
 
 	if remote_list_str == nil then
 		log("remote list str is nil")
-    return {}
+		return {}
 	end
 
 	local remote_list = {}
@@ -55,7 +54,7 @@ local function get_repo_name()
 
 	if abs_path == nil then
 		log("abs path is nil")
-    return nil
+		return nil
 	end
 	local last_folder_name = ""
 	for folder_name in string.gmatch(abs_path, "[^(/|\n)]+") do
@@ -97,9 +96,9 @@ local function get_git_blame_commit_hash(line_no, file_path)
 	end
 end
 
----@param pr_description pr_description
+---@param title string
 ---@return popup
-local function show_popup(pr_description)
+local function show_popup(title)
 	local popup = Popup({
 		position = "50%",
 		size = {
@@ -119,7 +118,7 @@ local function show_popup(pr_description)
 			},
 			style = "rounded",
 			text = {
-				top = pr_description["title"],
+				top = title,
 				top_align = "center",
 			},
 		},
@@ -132,6 +131,7 @@ local function show_popup(pr_description)
 			winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
 		},
 	})
+
 	-- mount/open the component
 	popup:mount()
 
@@ -165,18 +165,18 @@ local function highlight_buffer_using_markdown_highlighter(popup)
 	vim.api.nvim_set_option_value("filetype", "markdown", { buf = popup.bufnr })
 end
 
+---@param pr_url string
+---@return string|nil
+local function get_pr_details_text(pr_url)
+	local pr_details_text = exec_bash_command(string.format("gh pr view %s", pr_description["url"]))
+	return pr_details_text
+end
+
 ---@param popup popup
----@param pr_description pr_description
-local function write_pr_description_on_popup(popup, pr_description)
-	local pr_details = exec_bash_command(string.format("gh pr view %s", pr_description["url"]))
-
-	if pr_details == nil then
-		log("Unable to fetch PR details")
-    return
-	end
-
+---@param pr_details_text string
+local function write_pr_description_on_popup(popup, pr_details_text)
 	local lines = {}
-	for line in string.gmatch(pr_details, "[^\r\n]+") do
+	for line in string.gmatch(pr_details_text, "[^\r\n]+") do
 		table.insert(lines, line)
 	end
 	vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
@@ -215,8 +215,17 @@ vim.keymap.set("n", "<leader>pr", function()
 		return
 	end
 
-	local popup = show_popup(pr_descriptions[1])
+	pr_description = pr_descriptions[1]
+
+	local pr_details_text = get_pr_details_text(pr_description["url"])
+
+	if pr_details_text == nil then
+		log("Unable to fetch PR details")
+		return
+	end
+
+	local popup = show_popup(pr_description["title"])
 	highlight_buffer_using_markdown_highlighter(popup)
-	attach_key_maps_to_buffer(popup, pr_descriptions[1])
-	write_pr_description_on_popup(popup, pr_descriptions[1])
+	attach_key_maps_to_buffer(popup, pr_description)
+	write_pr_description_on_popup(popup, pr_details_text)
 end, { desc = "Get Pull Request Information" })
