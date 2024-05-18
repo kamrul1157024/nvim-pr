@@ -7,9 +7,7 @@ local function get_cursor_line_number()
 end
 
 local function log(line)
-	local f = io.open("pr.log", "a+")
-	io.write(line)
-	io.close(f)
+	vim.print(line)
 end
 
 local function exec_bash_command(command)
@@ -21,6 +19,47 @@ local function exec_bash_command(command)
 	local result = handle:read("*a")
 	handle:close()
 	return result
+end
+
+local function get_remotes()
+	local remote_list_str = exec_bash_command("git remote")
+
+	if remote_list_str == nil then
+		log("remote list str is nil")
+	end
+
+	local remote_list = {}
+
+	for remote_name in string.gmatch(remote_list_str, "[^\n]+") do
+		table.insert(remote_list, remote_name)
+	end
+	return remote_list
+end
+
+local function get_repo_name()
+	local abs_path = exec_bash_command("git rev-parse --show-toplevel")
+
+	if abs_path == nil then
+		log("abs path is nil")
+	end
+	local last_folder_name = ""
+	for folder_name in string.gmatch(abs_path, "[^(/|\n)]+") do
+		last_folder_name = folder_name
+	end
+	return last_folder_name
+end
+
+local function get_remote_repos()
+	local remotes = get_remotes()
+	local repo = get_repo_name()
+	log(vim.json.encode(remotes))
+	log(get_repo_name())
+	local remote_repos = {}
+	for _, remote in ipairs(remotes) do
+		table.insert(remote_repos, string.format("%s/%s", remote, repo))
+	end
+	log(vim.json.encode(remote_repos))
+	return remote_repos
 end
 
 local function get_current_file_path()
@@ -101,8 +140,19 @@ end
 local function get_pr_title_and_url()
 	local line_no = get_cursor_line_number()
 	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
+	local remote_repos = get_remote_repos()
+
+	vim.print("remote_repos", remote_repos)
+
+	local remote_repos_filter = ""
+
+	for _, remote_repo in ipairs(remote_repos) do
+		remote_repos_filter = remote_repos_filter .. string.format("-R %s ", remote_repo)
+	end
+
+	vim.print(remote_repos_filter)
 	local prs_description_output =
-		exec_bash_command(string.format('gh search prs "hash:%s" --json url --json title', commit_hash))
+		exec_bash_command(string.format('gh search prs "hash:%s" %s--json url,title', commit_hash, remote_repos_filter))
 
 	if prs_description_output == nil then
 		log("PR Description output is Null")
