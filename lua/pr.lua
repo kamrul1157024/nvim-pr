@@ -52,13 +52,10 @@ end
 local function get_remote_repos()
 	local remotes = get_remotes()
 	local repo = get_repo_name()
-	log(vim.json.encode(remotes))
-	log(get_repo_name())
 	local remote_repos = {}
 	for _, remote in ipairs(remotes) do
 		table.insert(remote_repos, string.format("%s/%s", remote, repo))
 	end
-	log(vim.json.encode(remote_repos))
 	return remote_repos
 end
 
@@ -122,6 +119,22 @@ local function show_popup(pr_description)
 	return popup
 end
 
+local function attach_key_maps_to_buffer(popup, pr_description)
+  vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "<CR>", "", {
+		desc = "Open the Pull Request on the browser",
+		callback = function()
+			exec_bash_command(string.format("gh pr view %s -w", pr_description["url"]))
+		end,
+	})
+
+	vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "q", "", {
+		desc = "Close the popup window",
+		callback = function()
+			popup:unmount()
+		end,
+	})
+end
+
 local function write_pr_description_on_popup(popup, pr_description)
 	local pr_details = exec_bash_command(string.format("gh pr view %s", pr_description["url"]))
 
@@ -130,7 +143,6 @@ local function write_pr_description_on_popup(popup, pr_description)
 	end
 
 	local lines = {}
-	vim.print(pr_details)
 	for line in string.gmatch(pr_details, "[^\r\n]+") do
 		table.insert(lines, line)
 	end
@@ -142,15 +154,12 @@ local function get_pr_title_and_url()
 	local commit_hash = get_git_blame_commit_hash(line_no, get_current_file_path())
 	local remote_repos = get_remote_repos()
 
-	vim.print("remote_repos", remote_repos)
-
 	local remote_repos_filter = ""
 
 	for _, remote_repo in ipairs(remote_repos) do
 		remote_repos_filter = remote_repos_filter .. string.format("-R %s ", remote_repo)
 	end
 
-	vim.print(remote_repos_filter)
 	local prs_description_output =
 		exec_bash_command(string.format('gh search prs "hash:%s" %s--json url,title', commit_hash, remote_repos_filter))
 
@@ -159,12 +168,21 @@ local function get_pr_title_and_url()
 		return
 	end
 
-	local pr_descriptions = vim.json.decode(prs_description_output)
-	return pr_descriptions
+	if pcall(vim.json.decode, prs_description_output) then
+		local pr_descriptions = vim.json.decode(prs_description_output)
+		return pr_descriptions
+	end
+	return nil
 end
 
 vim.keymap.set("n", "<leader>pr", function()
 	local pr_descriptions = get_pr_title_and_url()
+
+	if pr_descriptions == nil or pr_descriptions[1] == nil then
+		return
+	end
+
 	local popup = show_popup(pr_descriptions[1])
+  attach_key_maps_to_buffer(popup, pr_descriptions[1])
 	write_pr_description_on_popup(popup, pr_descriptions[1])
 end, { desc = "Get Pull Request Information" })
