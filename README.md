@@ -11,7 +11,6 @@ To use this plugin [gh](https://cli.github.com/) needed to be set up.
 
 | KeyBinding| cursor   | Mode   | Description                                                 |
 |--------------|-------|--------|-------------------------------------------------------------|
-|`<leader>pr`  | code  | Normal | To see the pull request info of the current line use.       |
 |`<CR>(Enter)` | popup | Normal | To open it on the browser press while cursor on the popup.  |
 |`q`           | popup | Normal | Quit from popup while cursor on the popup.                  |
 
@@ -24,14 +23,17 @@ To use this plugin [gh](https://cli.github.com/) needed to be set up.
 ## setup:
 ```lua
 {
-    "kamrul1157024/nvim-pr",
-    config = function()
-      require("pr").setup()
-    end,
-    dependencies = {
-      "MunifTanjim/nui.nvim",
-    },
-  }
+  "kamrul1157024/nvim-pr",
+  config = function()
+    require("nvim-pr").setup()
+    vim.keymap.set("n", "<leader>gprv", ":PR open<CR>", { desc = "View PR in the editor" })
+    vim.keymap.set("n", "<leader>gprb", ":PR open_in_browser<CR>", { desc = "Open PR in the browser" })
+  end,
+  dependencies = {
+    "MunifTanjim/nui.nvim",
+    "nvim-lua/plenary.nvim",
+  },
+}
 ```
 
 
